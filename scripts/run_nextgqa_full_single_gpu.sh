@@ -5,17 +5,18 @@ usage() {
   cat <<'EOF'
 Usage:
   bash scripts/run_nextgqa_full_single_gpu.sh \
-    --data-root /path/to/nextgqa \
-    --video-root /path/to/nextgqa/videos \
-    --run-root /path/to/output/run \
-    --conda-env /path/to/conda-env-or-env-name
+    [--data-root /path/to/nextgqa] \
+    [--video-root /path/to/nextgqa/videos] \
+    [--run-root /path/to/output/run] \
+    [--conda-env /path/to/conda-env-or-env-name]
 
-Required:
-  --data-root      Directory containing train.csv, val.csv, map_vid_vidorID.json,
-                   gsub_val.json, and frame2time_val.json.
-  --video-root     Directory containing NExT-GQA videos.
-  --run-root       Output directory for this full-data run.
-  --conda-env      Conda environment name or full prefix path.
+Defaults are prefilled for the earlier Omkar single-GPU machine:
+  --data-root   /home/omkar/ritesh/grounded_videoqa/data/nextgqa
+  --video-root  /home/omkar/ritesh/grounded_videoqa/data/nextgqa/videos
+  --run-root    /share/data/drive_1/omkar/grounded_videoqa_runs/nextgqa_full_seed13
+  --conda-env   /home/omkar/ritesh/grounded_videoqa/conda-env
+  --gpu         0
+  --cache-root  /share/data/drive_1/omkar/model_cache
 
 Optional:
   --gpu                    GPU id to use via CUDA_VISIBLE_DEVICES (default: 0)
@@ -49,13 +50,13 @@ require_dir() {
   fi
 }
 
-DATA_ROOT=""
-VIDEO_ROOT=""
-RUN_ROOT=""
-CONDA_ENV_SPEC=""
+DATA_ROOT="/home/omkar/ritesh/grounded_videoqa/data/nextgqa"
+VIDEO_ROOT="/home/omkar/ritesh/grounded_videoqa/data/nextgqa/videos"
+RUN_ROOT="/share/data/drive_1/omkar/grounded_videoqa_runs/nextgqa_full_seed13"
+CONDA_ENV_SPEC="/home/omkar/ritesh/grounded_videoqa/conda-env"
 GPU_ID="0"
 SEED="13"
-CACHE_ROOT=""
+CACHE_ROOT="/share/data/drive_1/omkar/model_cache"
 FEATURE_BATCH_SIZE="32"
 MODEL_NAME="openai/clip-vit-base-patch32"
 SUBTITLE_K="0"
@@ -88,11 +89,6 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
   esac
 done
-
-if [[ -z "$DATA_ROOT" || -z "$VIDEO_ROOT" || -z "$RUN_ROOT" || -z "$CONDA_ENV_SPEC" ]]; then
-  usage
-  exit 1
-fi
 
 require_dir "$DATA_ROOT"
 require_dir "$VIDEO_ROOT"
