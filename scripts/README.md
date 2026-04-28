@@ -16,6 +16,10 @@ As the implementation matures, expected scripts are:
 - `run_model_relative_study.py`
 - `run_multigpu_pipeline.sh`
 - `run_nextgqa_experiment.sh`
+- `run_nextgqa_full_single_gpu.sh`
+- `run_nextgqa_full_multigpu.sh`
+- `research_run_sheet.sh`
+- `run_research_single_gpu.sh`
 - `aggregate_run_summaries.py`
 - `run_ablation.py`
 
@@ -41,5 +45,14 @@ The focused NExT-GQA bash runner orchestrates the validated single-GPU experimen
 and full-run experiments on HPC machines: preprocessing, candidate generation, visual materialization,
 CLIP feature extraction, fixed-budget baseline, keyword baseline, oracle export, learned-policy training,
 and learned-policy evaluation.
+The full-data single-GPU and multi-GPU wrappers package the validated NExT-GQA cache-building flow for the
+Omkar machines used during the project. They are intended to create reusable full-data artifacts that later
+experiments can consume without repeating raw-video preprocessing.
+The research run sheet assumes such a full-data cache already exists and then launches the experiment blocks
+that matter most for a research-grade paper: multi-seed learned-policy runs, fixed-budget sweeps, evidence-type
+ablations, and model-relative analysis.
+The single-GPU research wrapper is the easiest entry point for a machine with one CUDA device and around
+`24 GB` VRAM. It delegates to the research run sheet after confirming that the single-GPU full-data cache
+exists.
 The summary aggregation script reads multiple run directories and prints a paper-ready mean/std table for
 selected summary files and metrics.

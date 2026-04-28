@@ -2,6 +2,9 @@
 
 This repository is the working codebase for the project on adaptive evidence acquisition and minimal sufficient evidence for grounded VideoQA.
 
+If you are joining the project midstream, read [docs/RESEARCH_STATUS.md](/Users/ritesh.thawkar/Ritesh/grounded_videoqa_handoff/docs/RESEARCH_STATUS.md) first.
+It summarizes the actual research question, the strongest confirmed results, the current limitations, and the next experiments needed to turn the codebase into a submission-grade paper.
+
 The repository is intentionally built as a fresh research codebase instead of forking one older paper repo wholesale. That is the right tradeoff for this project:
 
 - the official TVQA repository is useful as a data and evaluation reference, but it is tightly coupled to its original modeling stack;
@@ -82,6 +85,16 @@ What has already been validated:
 - unit and integration coverage over preprocessing, retrieval, visual materialization, answerer, oracle, and policy code;
 - a workspace-local end-to-end dry run through normalization, candidate building, visual extraction, CLIP features, hybrid retrieval, answerer training, oracle export, policy training, and sequential evaluation;
 - the current test suite passes in the Conda environment.
+- a real-data NExT-GQA smoke run (`100` train / `50` validation) completed end to end;
+- a controlled NExT-GQA subset experiment (`500` train / `200` validation) completed over `3` seeds.
+
+The strongest confirmed NExT-GQA subset result is:
+
+- fixed budget: accuracy `0.360`, evidence cost `7.5`, evidence count `6.0`, temporal IoU `0.273`;
+- keyword sequential baseline: same operating point as the fixed budget in the current setup;
+- learned policy: accuracy `0.365`, evidence cost `1.5`, evidence count `1.0`, temporal IoU `0.168`.
+
+The correct interpretation of that result is that the learned policy matches fixed-budget accuracy on the current setup while using much less evidence, but with weaker temporal grounding overlap.
 
 Dry-run outputs from the latest local validation are under:
 
@@ -96,8 +109,9 @@ Important limitations of the current codebase:
 - the new frozen multimodal answerer is stronger than the linear baseline, but it is still a frozen baseline rather than a competitive fine-tuned VLM;
 - the policy currently chooses modality-level acquisition actions, not individual item reranking within a modality;
 - the local dry run was on synthetic TVQA-shaped data and is only a plumbing validation, not a scientific result;
-- the final paper experiments still need real TVQA / TVQA+ runs, multi-seed evaluation, and ablations;
-- the repository now has NExT-GQA preprocessing support, but that benchmark has not yet been run end to end on real data.
+- the strongest confirmed scientific result is still on a controlled NExT-GQA subset rather than a finished full-data study;
+- the final paper still needs a broader baseline suite, full-data multi-seed evaluation, and stronger temporal-grounding analysis;
+- subtitle-aware and cross-dataset claims should remain secondary until the NExT-GQA visual-evidence story is complete.
 
 ## Repository Layout
 
@@ -245,6 +259,20 @@ python scripts/aggregate_run_summaries.py \
   --output-json runs/nextgqa_500_200_aggregate.json \
   --output-markdown runs/nextgqa_500_200_aggregate.md
 ```
+
+After a full-data cache run is complete, use the research run sheet for the next paper-grade experiment blocks:
+
+```bash
+bash scripts/research_run_sheet.sh
+```
+
+For a single-GPU machine with roughly `24 GB` VRAM, use:
+
+```bash
+bash scripts/run_research_single_gpu.sh
+```
+
+Those launchers assume cached full-data artifacts already exist and focus on the experiments that matter most for the final paper: full-data learned-policy seeds, fixed-budget sweep, evidence-type ablations, and model-relative analysis.
 
 Run a fixed-allocation baseline on candidate pools:
 
