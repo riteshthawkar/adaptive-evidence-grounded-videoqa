@@ -1,10 +1,11 @@
 .env
 .encv
-data/
-runs/
-outputs/
+/data/
+/runs/
+/outputs/
 __pycache__/
 *.py[cod]
+*.egg-info/
 .pytest_cache/
 *.aux
 *.bbl

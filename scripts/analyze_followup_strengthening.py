@@ -6,7 +6,7 @@ from pathlib import Path
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Analyze follow-up grounded VideoQA experiments for submission tables."
+        description="Analyze follow-up grounded VideoQA experiments for research tables."
     )
     parser.add_argument("--root", default="runs/nextgqa_full_seed13")
     parser.add_argument(
@@ -465,7 +465,7 @@ def main() -> None:
         },
         "test": {
             "examples": root / "candidates/test.visual_features.jsonl",
-            "pool": root / "outputs/submission_followups/test_controls/predictions/fixed_f3_s3.jsonl",
+            "pool": root / "outputs/vlm_qwen25vl_3b_full/predictions/test_fixed_f3_s3.jsonl",
         },
     }
 
