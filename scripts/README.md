@@ -50,7 +50,6 @@ This directory contains command-line entry points for preprocessing, evidence co
 - `select_paper_qualitative_cases.py`: select report-quality qualitative examples.
 - `build_paper_qualitative_figure.py`: build qualitative figure panels.
 - `run_model_relative_study.py`: compare oracle evidence across answerers.
-- `run_ablation.py`: run configured ablation blocks.
 
 ## Common Environment
 

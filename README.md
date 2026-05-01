@@ -35,6 +35,7 @@ The reported NExT-GQA test results use Qwen2.5-VL-3B-Instruct as the answerer on
 | Qwen fixed 3 frames + 3 segments | `0.724` | `7.500` | `6.000` | `0.618` | `0.615` | `0.296` | `0.287` | `0.454` |
 
 The main finding is an accuracy-cost-grounding tradeoff. `MLP+NMS` improves grounded answer accuracy over the one-segment control at less than half the cost of the fixed 3+3 reference. Oracle top-2 shows that compact supporting evidence often exists in the candidate pool, leaving routing quality as the main bottleneck.
+Relative to fixed 3+3, `MLP+NMS` retains about 95% of answer accuracy and 71% of grounded answer accuracy while using 39% of the evidence cost.
 
 ## Method Components
 
