@@ -316,6 +316,125 @@ class KeywordSequentialPolicy:
         return AcquisitionTrace(steps=tuple(steps), final_prediction=final_prediction)
 
 
+class OneShotSequentialPolicy:
+    """Deterministic low-budget controls for acquisition-policy evaluation.
+
+    These policies intentionally avoid learned stopping. They acquire one or
+    two top-ranked items according to a simple rule and then stop, making them
+    useful controls for checking whether a learned policy is doing more than
+    selecting the first high-scoring frame or segment.
+    """
+
+    def __init__(
+        self,
+        answerer: Answerer,
+        strategy: str,
+    ) -> None:
+        self.answerer = answerer
+        self.strategy = strategy
+
+    def _planned_modalities(self) -> tuple[str, ...]:
+        plans = {
+            "frame_once": ("frame",),
+            "segment_once": ("segment",),
+            "frame_segment_once": ("frame", "segment"),
+            "segment_frame_once": ("segment", "frame"),
+        }
+        if self.strategy not in plans:
+            raise ValueError(f"Unsupported one-shot strategy: {self.strategy}")
+        return plans[self.strategy]
+
+    def _select_top_item(
+        self,
+        candidate_pool: dict[str, tuple[EvidenceItem, ...]],
+        offsets: dict[str, int],
+    ) -> EvidenceItem | None:
+        candidates = []
+        modality_order = {"subtitle": 0, "frame": 1, "segment": 2}
+        for modality in ("subtitle", "frame", "segment"):
+            items = candidate_pool.get(modality, ())
+            offset = offsets.get(modality, 0)
+            if offset >= len(items):
+                continue
+            item = items[offset]
+            candidates.append(
+                (
+                    -float(item.retrieval_score),
+                    modality_order[modality],
+                    item.evidence_id,
+                    item,
+                )
+            )
+        if not candidates:
+            return None
+        return min(candidates, key=lambda candidate: candidate[:3])[3]
+
+    def _select_planned_item(
+        self,
+        candidate_pool: dict[str, tuple[EvidenceItem, ...]],
+        offsets: dict[str, int],
+        plan_index: int,
+    ) -> tuple[EvidenceItem | None, int]:
+        plan = self._planned_modalities()
+        while plan_index < len(plan):
+            modality = plan[plan_index]
+            items = candidate_pool.get(modality, ())
+            offset = offsets.get(modality, 0)
+            if offset < len(items):
+                return items[offset], plan_index + 1
+            plan_index += 1
+        return None, plan_index
+
+    def run(
+        self,
+        example: QuestionExample,
+        candidate_pool: dict[str, tuple[EvidenceItem, ...]],
+        max_items: int = 6,
+    ) -> AcquisitionTrace:
+        acquired: list[EvidenceItem] = []
+        steps: list[AcquisitionStep] = []
+        offsets = {"subtitle": 0, "frame": 0, "segment": 0}
+        plan_index = 0
+        target_items = 1 if self.strategy == "top_once" else len(self._planned_modalities())
+
+        for step_index in range(min(max_items, target_items)):
+            if self.strategy == "top_once":
+                selected = self._select_top_item(candidate_pool, offsets)
+            else:
+                selected, plan_index = self._select_planned_item(
+                    candidate_pool,
+                    offsets,
+                    plan_index,
+                )
+
+            if selected is None:
+                break
+
+            modality = selected.modality.value
+            offsets[modality] += 1
+            acquired.append(selected)
+            prediction = self.answerer.predict(example, tuple(acquired))
+            steps.append(
+                AcquisitionStep(
+                    step_index=step_index,
+                    action=f"acquire_{modality}",
+                    selected_item=selected,
+                    confidence_after_step=prediction.confidence,
+                )
+            )
+
+        final_prediction = self.answerer.predict(example, tuple(acquired))
+        steps.append(
+            AcquisitionStep(
+                step_index=len(steps),
+                action="stop",
+                selected_item=None,
+                confidence_after_step=final_prediction.confidence,
+            )
+        )
+        return AcquisitionTrace(steps=tuple(steps), final_prediction=final_prediction)
+
+
 class TrainableSequentialPolicy:
     model_name = "trainable_linear_policy"
 
@@ -662,8 +781,16 @@ def build_policy(
 ) -> SequentialPolicy:
     if name == "keyword":
         return KeywordSequentialPolicy(answerer, min_items_before_stop=min_items_before_stop)
+    if name in {"frame_once", "segment_once", "frame_segment_once", "segment_frame_once", "top_once"}:
+        return OneShotSequentialPolicy(answerer, strategy=name)
     if name == "linear":
         if not model_dir:
             raise ValueError("A model directory is required for the trainable sequential policy.")
         return TrainableSequentialPolicy.load(model_dir, answerer=answerer)
+    if name == "router_mlp":
+        if not model_dir:
+            raise ValueError("A model directory is required for the MLP evidence router.")
+        from adaptive_evidence_vqa.models.evidence_router import MLPEvidenceRouterPolicy
+
+        return MLPEvidenceRouterPolicy.load(model_dir, answerer=answerer)
     raise ValueError(f"Unsupported policy: {name}")

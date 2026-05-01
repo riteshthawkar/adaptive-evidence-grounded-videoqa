@@ -386,4 +386,12 @@ def build_answerer(
                 device=device,
             )
         )
+    if name == "calibrated_multimodal":
+        if model_dir is None:
+            raise ValueError("A model directory is required when loading the calibrated multimodal answerer.")
+        from adaptive_evidence_vqa.models.calibrated_multimodal_answerer import (
+            CalibratedMultimodalAnswerer,
+        )
+
+        return CalibratedMultimodalAnswerer.load(model_dir, device=device)
     raise ValueError(f"Unsupported answerer: {name}")

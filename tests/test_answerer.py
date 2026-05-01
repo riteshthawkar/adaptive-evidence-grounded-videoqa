@@ -5,6 +5,10 @@ from adaptive_evidence_vqa.models.answerer import (
     LinearAnswererConfig,
     TrainableLinearAnswerer,
 )
+from adaptive_evidence_vqa.models.calibrated_multimodal_answerer import (
+    CalibratedMultimodalAnswerer,
+    CalibratedMultimodalAnswererConfig,
+)
 from adaptive_evidence_vqa.models.frozen_multimodal_answerer import FrozenMultimodalAnswerer
 
 
@@ -188,3 +192,80 @@ def test_frozen_multimodal_answerer_uses_visual_feature_store(tmp_path) -> None:
     prediction = answerer.predict(example, example.evidence_pool)
 
     assert prediction.predicted_index == 0
+
+
+def test_calibrated_multimodal_answerer_fits_visual_toy_examples(tmp_path) -> None:
+    feature_path = tmp_path / "visual_features.npz"
+    np.savez(
+        feature_path,
+        frame_embeddings=np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
+        segment_embeddings=np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
+        frame_times=np.asarray([1.0, 2.0], dtype=np.float32),
+    )
+    blue_example = parse_tvqa_like_record(
+        {
+            "example_id": "toy-calibrated-blue",
+            "video_id": "video-calibrated-blue",
+            "question": "What color is the shirt?",
+            "options": ["The shirt is blue.", "The shirt is red."],
+            "answer_index": 0,
+            "frames": [
+                {
+                    "text": "",
+                    "time": 1.0,
+                    "metadata": {"feature_index": 0, "visual_feature_path": str(feature_path)},
+                }
+            ],
+            "segments": [
+                {
+                    "text": "",
+                    "start": 0.5,
+                    "end": 1.5,
+                    "metadata": {"feature_index": 0, "visual_feature_path": str(feature_path)},
+                }
+            ],
+        }
+    )
+    red_example = parse_tvqa_like_record(
+        {
+            "example_id": "toy-calibrated-red",
+            "video_id": "video-calibrated-red",
+            "question": "What color is the shirt?",
+            "options": ["The shirt is blue.", "The shirt is red."],
+            "answer_index": 1,
+            "frames": [
+                {
+                    "text": "",
+                    "time": 2.0,
+                    "metadata": {"feature_index": 1, "visual_feature_path": str(feature_path)},
+                }
+            ],
+            "segments": [
+                {
+                    "text": "",
+                    "start": 1.5,
+                    "end": 2.5,
+                    "metadata": {"feature_index": 1, "visual_feature_path": str(feature_path)},
+                }
+            ],
+        }
+    )
+    dataset = [
+        (blue_example, blue_example.evidence_pool),
+        (red_example, red_example.evidence_pool),
+    ]
+
+    model = CalibratedMultimodalAnswerer.fit(
+        dataset,
+        config=CalibratedMultimodalAnswererConfig(
+            epochs=40,
+            batch_size=2,
+            learning_rate=0.5,
+            weight_decay=0.0,
+            patience=10,
+            seed=3,
+        ),
+        text_encoder=StubTextEncoder(),
+    )
+
+    assert [model.predict(example, evidence).predicted_index for example, evidence in dataset] == [0, 1]

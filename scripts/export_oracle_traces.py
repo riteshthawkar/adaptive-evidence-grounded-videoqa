@@ -18,7 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=None, help="Optional limit on number of examples.")
     parser.add_argument(
         "--answerer",
-        choices=("lexical", "linear", "frozen_multimodal"),
+        choices=("lexical", "linear", "frozen_multimodal", "calibrated_multimodal"),
         default="lexical",
         help="Answerer used inside the oracle reduction loop.",
     )

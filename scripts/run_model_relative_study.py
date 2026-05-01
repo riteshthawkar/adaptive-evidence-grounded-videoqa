@@ -31,7 +31,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True, help="Directory where summary and per-example JSONL are stored.")
     parser.add_argument("--limit", type=int, default=None, help="Optional limit on the number of examples.")
 
-    parser.add_argument("--answerer-a", choices=("lexical", "linear", "frozen_multimodal"), required=True)
+    parser.add_argument(
+        "--answerer-a",
+        choices=("lexical", "linear", "frozen_multimodal", "calibrated_multimodal"),
+        required=True,
+    )
     parser.add_argument("--answerer-a-model-dir", help="Model directory for answerer A when using `linear`.")
     parser.add_argument(
         "--answerer-a-model-name",
@@ -41,7 +45,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--answerer-a-device", help="Optional device override for answerer A.")
     parser.add_argument("--answerer-a-label", default="answerer_a", help="Human-readable label for answerer A.")
 
-    parser.add_argument("--answerer-b", choices=("lexical", "linear", "frozen_multimodal"), required=True)
+    parser.add_argument(
+        "--answerer-b",
+        choices=("lexical", "linear", "frozen_multimodal", "calibrated_multimodal"),
+        required=True,
+    )
     parser.add_argument("--answerer-b-model-dir", help="Model directory for answerer B when using `linear`.")
     parser.add_argument(
         "--answerer-b-model-name",

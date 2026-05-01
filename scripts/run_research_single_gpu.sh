@@ -10,10 +10,10 @@ Purpose:
   Launch the research experiment blocks on a single-GPU machine after the
   full-data cache run has been created by scripts/run_nextgqa_full_single_gpu.sh.
 
-Default Omkar-machine paths:
-  --cache-run      /share/data/drive_1/omkar/grounded_videoqa_runs/nextgqa_full_seed13
-  --research-root  /share/data/drive_1/omkar/grounded_videoqa_runs/research_nextgqa_full_single_gpu
-  --conda-env      /home/omkar/ritesh/grounded_videoqa/conda-env
+Default paths:
+  --cache-run      runs/nextgqa_full_seed13
+  --research-root  runs/research_nextgqa_full_single_gpu
+  --conda-env      adaptive-evidence-vqa
   --gpu            0
 
 Notes:
@@ -24,15 +24,17 @@ Notes:
     same phase-control flags such as:
       --skip-main
       --skip-budget-sweep
+      --skip-controls
       --skip-ablations
       --skip-model-relative
+      --skip-qualitative
       --aggregate-only
 EOF
 }
 
-CACHE_RUN="/share/data/drive_1/omkar/grounded_videoqa_runs/nextgqa_full_seed13"
-RESEARCH_ROOT="/share/data/drive_1/omkar/grounded_videoqa_runs/research_nextgqa_full_single_gpu"
-CONDA_ENV_SPEC="/home/omkar/ritesh/grounded_videoqa/conda-env"
+CACHE_RUN="${CACHE_RUN:-runs/nextgqa_full_seed13}"
+RESEARCH_ROOT="${RESEARCH_ROOT:-runs/research_nextgqa_full_single_gpu}"
+CONDA_ENV_SPEC="${CONDA_ENV_SPEC:-adaptive-evidence-vqa}"
 GPU_ID="0"
 
 PASSTHROUGH=()

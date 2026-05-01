@@ -2,8 +2,58 @@
 
 This repository is the working codebase for the project on adaptive evidence acquisition and minimal sufficient evidence for grounded VideoQA.
 
-If you are joining the project midstream, read [docs/RESEARCH_STATUS.md](/Users/ritesh.thawkar/Ritesh/grounded_videoqa_handoff/docs/RESEARCH_STATUS.md) first.
-It summarizes the actual research question, the strongest confirmed results, the current limitations, and the next experiments needed to turn the codebase into a submission-grade paper.
+If you are joining the project midstream, read `docs/SUBMISSION_READINESS.md` first.
+It summarizes the final research claim, the completed full-test results, and the artifacts that should be used for submission.
+
+## Submission Snapshot
+
+As of May 1, 2026, the main submission artifact is the final NeurIPS-style report in
+`docs/report/final_paper.pdf` and `docs/report/final_paper.tex`.
+The main content ends on page 9; references begin on page 10 and the appendix follows.
+
+The completed full-test result uses Qwen2.5-VL-3B-Instruct as the answerer on all
+`5,553` NExT-GQA test examples. The proposed learned operating point is
+`Qwen MLP+NMS (Our)`.
+
+| Method | Split | Acc@QA | Cost | Count | mIoP | IoP@0.5 | mIoU | IoU@0.5 | Acc@GQA |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Qwen one segment | test | `0.668` | `1.500` | `1.000` | `0.301` | `0.311` | `0.165` | `0.133` | `0.221` |
+| Qwen MLP+NMS (Our) | test | `0.689` | `2.935` | `2.000` | `0.440` | `0.453` | `0.246` | `0.210` | `0.321` |
+| Qwen temporal-supervised router | test | `0.696` | `2.273` | `2.000` | `0.433` | `0.432` | `0.088` | `0.075` | `0.312` |
+| Qwen oracle top-2 | test | `0.701` | `2.493` | `2.000` | `0.618` | `0.615` | `0.224` | `0.207` | `0.442` |
+| Qwen fixed 3 frames + 3 segments | test | `0.724` | `7.500` | `6.000` | `0.618` | `0.615` | `0.296` | `0.287` | `0.454` |
+
+Important paper artifacts:
+
+- final report: `docs/report/final_paper.pdf`
+- report source: `docs/report/final_paper.tex`
+- presentation-values copy of the report: `docs/report/final_paper_presentation_values.pdf`
+- final readiness log: `docs/SUBMISSION_READINESS.md`
+- final Qwen metrics with bootstrap confidence intervals and question-type breakdowns:
+  `docs/artifacts/final_metrics/qwen_test_followup_compare.md`
+- temporal-router diagnostic metrics:
+  `docs/artifacts/final_metrics/qwen_test_temporal_router_compare.md`
+- frozen-answerer controls and candidate-pool ablations:
+  `docs/artifacts/final_metrics/`
+- main qualitative figure: `docs/report/qualitative_cases.pdf`
+- appendix qualitative figure: `docs/report/appendix_qualitative_cases.pdf`
+- final tradeoff figure: `docs/report/qwen_current_tradeoff_presentation.pdf`
+- sample demo input/output: `demo/nextgqa_qwen_sample.md`
+
+Reproduce the final Qwen follow-up evaluations:
+
+```bash
+export PYTHONPATH=src:.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+bash scripts/run_qwen_followup_strengthening.sh test
+bash scripts/run_qwen_temporal_router.sh test
+```
+
+The Qwen runners use resumable prediction files, so interrupted jobs continue from
+existing JSONL outputs.
+The full local `data/` and `runs/` directories are intentionally ignored for GitHub
+submission because they contain raw videos, frame caches, and large prediction files.
+The lightweight final metric summaries are copied under `docs/artifacts/final_metrics/`.
 
 The repository is intentionally built as a fresh research codebase instead of forking one older paper repo wholesale. That is the right tradeoff for this project:
 
@@ -11,7 +61,7 @@ The repository is intentionally built as a fresh research codebase instead of fo
 - the TVQA+ / STAGE code is useful for grounding supervision and annotations, but it uses an older environment and is not a good base for new retrieval-policy work;
 - FrozenBiLM is the cleanest modern baseline reference for VideoQA training structure, but its modeling assumptions are still different from sequential evidence acquisition.
 
-The plan is to use those projects as references and, where appropriate, port only the parts we need:
+Those projects are used as references and, where appropriate, only the required parts are ported:
 
 - dataset adapters and preprocessing conventions from TVQA / TVQA+;
 - evaluation logic for localized or grounded VideoQA where available;
@@ -19,12 +69,12 @@ The plan is to use those projects as references and, where appropriate, port onl
 
 ## Research Objective
 
-The method we are building is:
+The method studies adaptive visual evidence acquisition:
 
-1. construct a multimodal evidence pool from subtitles, frames, and temporal segments;
-2. score answer options with evidence-conditioned features;
-3. approximate minimal sufficient evidence subsets offline;
-4. learn a sequential acquisition policy that chooses which evidence to acquire next and when to stop.
+1. construct a visual evidence pool from keyframes and short temporal segments;
+2. score candidate evidence using question-answer and visual features;
+3. select a compact evidence set before calling a frozen VLM answerer;
+4. evaluate the answerer with accuracy, grounding, and acquisition-cost metrics.
 
 The main scientific target is the tradeoff between:
 
@@ -35,11 +85,11 @@ The main scientific target is the tradeoff between:
 
 ## Objective And Novelty
 
-The current project direction is:
+The final research direction is:
 
 - formulate grounded VideoQA as a sequential evidence-acquisition problem rather than a fixed-context prediction problem;
 - study minimal sufficient evidence as a model-relative property rather than an absolute one;
-- retrieve from three evidence sources: subtitle chunks, keyframes, and short temporal segments;
+- retrieve from visual evidence sources: keyframes and short temporal segments;
 - approximate constrained minimal evidence sets offline under explicit oracle modes;
 - compare weak and stronger answerers to measure how evidence size, faithfulness, and transfer change.
 
@@ -57,7 +107,7 @@ This repository is therefore organized as a research codebase for:
 
 1. strong fixed-budget baselines;
 2. constrained oracle construction;
-3. trainable sequential acquisition policies;
+3. trainable visual evidence routers;
 4. reproducible ablations and evaluation.
 
 ## Current Implementation Status
@@ -79,22 +129,26 @@ What is implemented today:
 - A model-relative study runner that compares minimal-evidence subsets across two answerers and records subset overlap, modality agreement, temporal agreement, and transfer gaps.
 - A multi-GPU HPC-oriented orchestration script for the current end-to-end pipeline.
 - A focused NExT-GQA HPC runner that packages the validated single-GPU experiment flow into one script.
+- A Qwen2.5-VL evaluation runner with resumable prediction JSONL files.
+- A learned MLP evidence router with optional temporal NMS.
+- A temporal-supervised router used as a diagnostic ablation.
+- Bootstrap confidence intervals, question-type breakdowns, tradeoff plots, and qualitative case selection scripts for the final paper.
 
-What has already been validated:
+What has been validated:
 
 - unit and integration coverage over preprocessing, retrieval, visual materialization, answerer, oracle, and policy code;
 - a workspace-local end-to-end dry run through normalization, candidate building, visual extraction, CLIP features, hybrid retrieval, answerer training, oracle export, policy training, and sequential evaluation;
 - the current test suite passes in the Conda environment.
 - a real-data NExT-GQA smoke run (`100` train / `50` validation) completed end to end;
 - a controlled NExT-GQA subset experiment (`500` train / `200` validation) completed over `3` seeds.
+- full NExT-GQA test-set Qwen evaluation completed for the final reported methods.
 
-The strongest confirmed NExT-GQA subset result is:
+The final full-test result supports the following interpretation:
 
-- fixed budget: accuracy `0.360`, evidence cost `7.5`, evidence count `6.0`, temporal IoU `0.273`;
-- keyword sequential baseline: same operating point as the fixed budget in the current setup;
-- learned policy: accuracy `0.365`, evidence cost `1.5`, evidence count `1.0`, temporal IoU `0.168`.
-
-The correct interpretation of that result is that the learned policy matches fixed-budget accuracy on the current setup while using much less evidence, but with weaker temporal grounding overlap.
+- single-segment evidence is cheap but weakly grounded: `0.668` Acc@QA and `0.221` Acc@GQA at cost `1.500`;
+- `MLP+NMS` improves grounded answer accuracy to `0.321` at cost `2.935`, making it the final proposed learned selector;
+- the temporal-supervised router is cheaper and slightly higher on answer accuracy, but its lower IoU makes it a diagnostic ablation rather than the main method;
+- oracle top-2 nearly matches the high-cost fixed 3+3 grounded score, showing that the candidate pool contains compact evidence and the remaining bottleneck is routing.
 
 Dry-run outputs from the latest local validation are under:
 
@@ -104,14 +158,12 @@ Dry-run outputs from the latest local validation are under:
 - `outputs/dry_run/models`
 - `outputs/dry_run/outputs`
 
-Important limitations of the current codebase:
+Important limitations to report honestly:
 
 - the new frozen multimodal answerer is stronger than the linear baseline, but it is still a frozen baseline rather than a competitive fine-tuned VLM;
-- the policy currently chooses modality-level acquisition actions, not individual item reranking within a modality;
-- the local dry run was on synthetic TVQA-shaped data and is only a plumbing validation, not a scientific result;
-- the strongest confirmed scientific result is still on a controlled NExT-GQA subset rather than a finished full-data study;
-- the final paper still needs a broader baseline suite, full-data multi-seed evaluation, and stronger temporal-grounding analysis;
-- subtitle-aware and cross-dataset claims should remain secondary until the NExT-GQA visual-evidence story is complete.
+- the main learned selector uses frozen CLIP-style features and a compact MLP router rather than an end-to-end trained video-language model;
+- the grounding metric is computed from selected evidence overlap with NExT-GQA temporal annotations, so it measures evidence faithfulness rather than pixel-level localization;
+- subtitle-aware and cross-dataset claims remain secondary because the final empirical story is visual evidence acquisition on NExT-GQA.
 
 ## Repository Layout
 
@@ -141,6 +193,31 @@ The first concrete dataset support is now wired for:
 Both are normalized into a common JSONL schema before training.
 After normalization, a separate candidate-pool stage generates subtitle chunks, segment windows,
 and frame timestamps for retrieval and oracle construction.
+
+## Dataset Download Notes
+
+The final experiments use NExT-GQA annotations and videos. The repository does not
+store credentials in source control. If using the Hugging Face mirror, put
+`HF_TOKEN=...` in a local `.env` file or export it in the shell before running the
+download/evaluation scripts.
+
+Expected local layout for the completed runs:
+
+```text
+data/nextgqa_hf/
+  train.csv
+  val.csv
+  test.csv
+  gsub_*.json
+  frame2time_*.json or upbd_*.json
+  map_vid_vidorID.json
+  NExTVideo/<group>/<video_id>.mp4
+```
+
+The normalization scripts also accept equivalent paths supplied from the official
+NExT-GQA release or course-provided storage. The completed local run used
+`data/nextgqa_hf/` as the data root and `data/nextgqa_hf/NExTVideo/` as the video
+root.
 
 ## Quick Start
 
@@ -260,7 +337,7 @@ python scripts/aggregate_run_summaries.py \
   --output-markdown runs/nextgqa_500_200_aggregate.md
 ```
 
-After a full-data cache run is complete, use the research run sheet for the next paper-grade experiment blocks:
+After a full-data cache run is complete, use the research run sheet for extended experiment blocks:
 
 ```bash
 bash scripts/research_run_sheet.sh
@@ -383,6 +460,33 @@ python scripts/run_sequential_policy.py \
   --max-items 6
 ```
 
+Run the low-budget control suite and fixed-budget sweep used to check whether
+the learned policy is doing more than selecting the first high-scoring visual item:
+
+```bash
+python scripts/run_research_controls.py \
+  --input-path data/candidates/nextgqa_val_visual_features.jsonl \
+  --output-dir outputs/research_controls \
+  --answerer frozen_multimodal \
+  --answerer-device cuda \
+  --retriever hybrid_clip \
+  --visual-device cuda \
+  --subtitle-k 0 \
+  --frame-k 3 \
+  --segment-k 3 \
+  --fixed-budget-ks 1,2,3,4 \
+  --write-predictions
+```
+
+Select qualitative examples for the final report from fixed-budget and policy prediction files:
+
+```bash
+python scripts/select_qualitative_cases.py \
+  --fixed-predictions outputs/fixed_budget_frozen.predictions.jsonl \
+  --policy-predictions outputs/sequential_policy_frozen.predictions.jsonl \
+  --output-json outputs/qualitative_cases.json
+```
+
 For an HPC-style end-to-end run across multiple GPUs, use:
 
 ```bash
@@ -402,7 +506,7 @@ This runner parallelizes the CLIP-heavy stages across GPUs and keeps the current
 Run the test suite from the Conda environment:
 
 ```bash
-pytest
+python -m pytest
 ```
 
 ## Recommended Reading Order For New Contributors
@@ -410,8 +514,8 @@ pytest
 For someone joining the project midstream, the fastest way to get oriented is:
 
 1. read this README for the research objective, novelty, and current implementation status;
-2. read [docs/report/main.tex](/Users/ritesh.thawkar/Desktop/Masters_study/SEM_2/Deep_Learning/Project/docs/report/main.tex) for the literature review and research positioning;
-3. inspect [configs/experiment.template.yaml](/Users/ritesh.thawkar/Desktop/Masters_study/SEM_2/Deep_Learning/Project/configs/experiment.template.yaml) for the current experiment assumptions;
+2. read `docs/report/final_paper.tex` for the current final-report narrative and results;
+3. inspect `configs/experiment.template.yaml` for the current experiment assumptions;
 4. inspect `scripts/` in pipeline order: preprocessing, candidate building, visual extraction, answerer training, oracle export, policy training, and evaluation;
 5. inspect `outputs/dry_run/` for a fully executed miniature run.
 
@@ -423,12 +527,25 @@ These are references, not vendored dependencies:
 - TVQA+ / STAGE official repository: <https://github.com/jayleicn/TVQAplus>
 - FrozenBiLM VideoQA repository: <https://github.com/antoyang/FrozenBiLM>
 
-## Immediate Next Implementation Steps
+## Submission Package Checklist
 
-1. run the end-to-end pipeline on real TVQA / TVQA+ train and validation splits instead of smoke examples;
-2. benchmark the CLIP-backed hybrid retriever on real materialized visual evidence and compare it fairly against sparse baselines;
-3. add a second, clearly stronger answerer tier beyond the current frozen multimodal baseline;
-4. run the new NExT-GQA preprocessing path on real data and validate the benchmark end to end;
-5. add ablations for oracle modes, stop behavior, and action-level imitation accuracy;
-6. benchmark robustness under noisy subtitles, missing modalities, and tighter acquisition budgets;
-7. prepare paper-ready tables and figures for accuracy, cost, faithfulness, grounding, and transfer tradeoffs.
+The repository is organized to satisfy the final artifact requirements:
+
+- code and runnable entry points are in `src/` and `scripts/`;
+- dependency and install instructions are in `environment.yml`, `pyproject.toml`, and this README;
+- dataset download and expected-layout notes are listed above;
+- sample input/output is in `demo/nextgqa_qwen_sample.md`;
+- the final report and figures are in `docs/report/`;
+- lightweight final metric summaries are in `docs/artifacts/final_metrics/`;
+- external code and dataset references are credited in the report bibliography and the external-reference section below.
+
+Do not commit or upload `.env`; it may contain `HF_TOKEN`. Do not upload the full
+local `data/` or `runs/` directories; use the dataset download instructions and
+the lightweight metric artifacts instead.
+
+## Optional Future Work
+
+1. integrate an official NExT-GQA single-span evaluator if a compatible release is available;
+2. test segment evidence with multiple sampled frames per segment to better capture motion;
+3. train a router that uses VLM feedback or lightweight temporal features beyond frozen CLIP similarity;
+4. extend the visual-evidence acquisition protocol to subtitle-rich grounded VideoQA datasets.

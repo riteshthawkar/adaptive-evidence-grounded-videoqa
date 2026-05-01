@@ -109,6 +109,8 @@ ORACLE_MODE="correctness_plus_sufficiency"
 ORACLE_MIN_SUFFICIENCY="0.8"
 MAX_ITEMS="6"
 MIN_ITEMS_BEFORE_STOP="1"
+VISUAL_MATERIALIZE_WORKERS="${VISUAL_MATERIALIZE_WORKERS:-1}"
+VISUAL_MATERIALIZE_CHUNKSIZE="${VISUAL_MATERIALIZE_CHUNKSIZE:-1}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -250,15 +252,29 @@ for split in train val; do
     --output-path "$RUN_ROOT/candidates/${split}.jsonl"
 
   log "Materializing visual evidence for $split"
-  run_logged \
-    "$RUN_ROOT/logs/${split}.materialize.log" \
-    python scripts/materialize_visual_evidence.py \
-    --input-path "$RUN_ROOT/candidates/${split}.jsonl" \
-    --video-root "$VIDEO_ROOT" \
-    --output-path "$RUN_ROOT/candidates/${split}.visual.jsonl" \
-    --frames-dir "$RUN_ROOT/artifacts/frames" \
-    --segments-dir "$RUN_ROOT/artifacts/segments" \
-    --overwrite
+  if [[ "$VISUAL_MATERIALIZE_WORKERS" -gt 1 ]]; then
+    run_logged \
+      "$RUN_ROOT/logs/${split}.materialize.log" \
+      python scripts/materialize_visual_evidence_parallel.py \
+      --input-path "$RUN_ROOT/candidates/${split}.jsonl" \
+      --video-root "$VIDEO_ROOT" \
+      --output-path "$RUN_ROOT/candidates/${split}.visual.jsonl" \
+      --frames-dir "$RUN_ROOT/artifacts/frames" \
+      --segments-dir "$RUN_ROOT/artifacts/segments" \
+      --workers "$VISUAL_MATERIALIZE_WORKERS" \
+      --chunksize "$VISUAL_MATERIALIZE_CHUNKSIZE" \
+      --overwrite
+  else
+    run_logged \
+      "$RUN_ROOT/logs/${split}.materialize.log" \
+      python scripts/materialize_visual_evidence.py \
+      --input-path "$RUN_ROOT/candidates/${split}.jsonl" \
+      --video-root "$VIDEO_ROOT" \
+      --output-path "$RUN_ROOT/candidates/${split}.visual.jsonl" \
+      --frames-dir "$RUN_ROOT/artifacts/frames" \
+      --segments-dir "$RUN_ROOT/artifacts/segments" \
+      --overwrite
+  fi
 
   log "Extracting CLIP features for $split"
   run_logged \

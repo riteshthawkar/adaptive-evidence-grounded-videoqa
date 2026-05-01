@@ -5,6 +5,7 @@ from adaptive_evidence_vqa.models.policy import (
     SequentialPolicyConfig,
     TrainableSequentialPolicy,
     action_mask,
+    build_policy,
 )
 from adaptive_evidence_vqa.schemas import (
     AcquisitionTrace,
@@ -324,3 +325,46 @@ def test_trainable_policy_filters_invalid_stop_only_states() -> None:
     )
 
     assert trace.steps[0].action == "acquire_frame"
+
+
+def test_one_shot_policy_baselines_select_expected_items() -> None:
+    frame_item = EvidenceItem(
+        evidence_id="frame-1",
+        modality=Modality.FRAME,
+        text="A blue shirt is visible.",
+        start_time=1.5,
+        end_time=1.5,
+        retrieval_score=0.4,
+    )
+    segment_item = EvidenceItem(
+        evidence_id="segment-1",
+        modality=Modality.SEGMENT,
+        text="The shirt is shown while the person turns.",
+        start_time=1.0,
+        end_time=3.0,
+        retrieval_score=0.9,
+        acquisition_cost=1.5,
+    )
+    example = QuestionExample(
+        example_id="ex-one-shot",
+        video_id="video-one-shot",
+        question="What color is the shirt?",
+        options=(
+            AnswerOption(index=0, text="The shirt is blue."),
+            AnswerOption(index=1, text="The shirt is red."),
+        ),
+        answer_index=0,
+        frames=(frame_item,),
+        segments=(segment_item,),
+    )
+    candidate_pool = {"subtitle": (), "frame": example.frames, "segment": example.segments}
+
+    frame_trace = build_policy("frame_once", StubAnswerer()).run(example, candidate_pool, max_items=6)
+    segment_trace = build_policy("segment_once", StubAnswerer()).run(example, candidate_pool, max_items=6)
+    top_trace = build_policy("top_once", StubAnswerer()).run(example, candidate_pool, max_items=6)
+    paired_trace = build_policy("frame_segment_once", StubAnswerer()).run(example, candidate_pool, max_items=6)
+
+    assert [step.action for step in frame_trace.steps] == ["acquire_frame", "stop"]
+    assert [step.action for step in segment_trace.steps] == ["acquire_segment", "stop"]
+    assert [step.action for step in top_trace.steps] == ["acquire_segment", "stop"]
+    assert [step.action for step in paired_trace.steps] == ["acquire_frame", "acquire_segment", "stop"]

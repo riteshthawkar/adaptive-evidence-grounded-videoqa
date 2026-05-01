@@ -10,10 +10,10 @@ Purpose:
   Run the current research-grade NExT-GQA experiment blocks on top of an
   already materialized full-data cache run.
 
-Default Omkar-machine paths:
-  --cache-run      /share/data/drive_1/omkar/grounded_videoqa_runs/nextgqa_full_multigpu_seed13
-  --research-root  /share/data/drive_1/omkar/grounded_videoqa_runs/research_nextgqa_full
-  --conda-env      /home/omkar/ritesh/grounded_videoqa/conda-env
+Default paths:
+  --cache-run      runs/nextgqa_full_seed13
+  --research-root  runs/research_nextgqa_full
+  --conda-env      adaptive-evidence-vqa
   --gpu            0
   --model-name     openai/clip-vit-base-patch32
 
@@ -35,8 +35,10 @@ Options:
 Block controls:
   --skip-main               Skip 3-seed learned-policy block.
   --skip-budget-sweep       Skip fixed-budget sweep.
+  --skip-controls           Skip low-budget one-shot control suite.
   --skip-ablations          Skip frame-only and segment-only ablations.
   --skip-model-relative     Skip model-relative analysis.
+  --skip-qualitative        Skip qualitative case selection.
   --aggregate-only          Only run aggregation over existing outputs.
 
 Notes:
@@ -156,6 +158,32 @@ run_budget_sweep() {
       --oracle-min-sufficiency "$ORACLE_MIN_SUFFICIENCY" \
       --oracle-min-temporal-iou "$ORACLE_MIN_TEMPORAL_IOU"
   done
+}
+
+run_controls() {
+  local run="$RESEARCH_ROOT/controls"
+  mkdir -p "$run"/{outputs,logs}
+
+  run_logged \
+    "$run/logs/research_controls.log" \
+    python scripts/run_research_controls.py \
+    --input-path "$CACHE_RUN/candidates/val.visual_features.jsonl" \
+    --output-dir "$run/outputs" \
+    --answerer frozen_multimodal \
+    --answerer-device cuda \
+    --answerer-model-name "$MODEL_NAME" \
+    --retriever hybrid_clip \
+    --visual-device cuda \
+    --visual-model-name "$MODEL_NAME" \
+    --subtitle-k 0 \
+    --frame-k 3 \
+    --segment-k 3 \
+    --fixed-budget-ks "1,2,3,4" \
+    --max-items "$MAX_ITEMS" \
+    --oracle-mode "$ORACLE_MODE" \
+    --oracle-min-sufficiency "$ORACLE_MIN_SUFFICIENCY" \
+    --oracle-min-temporal-iou "$ORACLE_MIN_TEMPORAL_IOU" \
+    --write-predictions
 }
 
 run_ablation() {
@@ -286,6 +314,30 @@ run_model_relative() {
     --oracle-min-temporal-iou "$ORACLE_MIN_TEMPORAL_IOU"
 }
 
+run_qualitative() {
+  local seed="${MAIN_SEEDS[0]}"
+  local fixed_predictions="$CACHE_RUN/outputs/fixed_budget_frozen.predictions.jsonl"
+  local policy_predictions="$RESEARCH_ROOT/main/policy_frozen_seed${seed}/outputs/sequential_policy_frozen.predictions.jsonl"
+  local output_path="$RESEARCH_ROOT/qualitative/cases_seed${seed}.json"
+
+  if [[ ! -f "$fixed_predictions" ]]; then
+    log "Skipping qualitative cases because $fixed_predictions is missing."
+    return
+  fi
+  if [[ ! -f "$policy_predictions" ]]; then
+    log "Skipping qualitative cases because $policy_predictions is missing."
+    return
+  fi
+
+  run_logged \
+    "$RESEARCH_ROOT/qualitative/select_cases_seed${seed}.log" \
+    python scripts/select_qualitative_cases.py \
+    --fixed-predictions "$fixed_predictions" \
+    --policy-predictions "$policy_predictions" \
+    --output-json "$output_path" \
+    --limit-per-bucket 8
+}
+
 run_aggregate() {
   local learned_roots=()
   local seed
@@ -300,9 +352,9 @@ run_aggregate() {
     --output-markdown "$RESEARCH_ROOT/aggregate/learned_policy_3seed.md"
 }
 
-CACHE_RUN="/share/data/drive_1/omkar/grounded_videoqa_runs/nextgqa_full_multigpu_seed13"
-RESEARCH_ROOT="/share/data/drive_1/omkar/grounded_videoqa_runs/research_nextgqa_full"
-CONDA_ENV_SPEC="/home/omkar/ritesh/grounded_videoqa/conda-env"
+CACHE_RUN="${CACHE_RUN:-runs/nextgqa_full_seed13}"
+RESEARCH_ROOT="${RESEARCH_ROOT:-runs/research_nextgqa_full}"
+CONDA_ENV_SPEC="${CONDA_ENV_SPEC:-adaptive-evidence-vqa}"
 GPU_ID="0"
 MODEL_NAME="openai/clip-vit-base-patch32"
 MAIN_SEEDS_CSV="13,21,34"
@@ -315,8 +367,10 @@ MAX_ITEMS="6"
 MIN_ITEMS_BEFORE_STOP="1"
 RUN_MAIN="1"
 RUN_BUDGET_SWEEP="1"
+RUN_CONTROLS="1"
 RUN_ABLATIONS="1"
 RUN_MODEL_RELATIVE="1"
+RUN_QUALITATIVE="1"
 AGGREGATE_ONLY="0"
 
 while [[ $# -gt 0 ]]; do
@@ -336,14 +390,18 @@ while [[ $# -gt 0 ]]; do
     --min-items-before-stop) MIN_ITEMS_BEFORE_STOP="$2"; shift 2 ;;
     --skip-main) RUN_MAIN="0"; shift 1 ;;
     --skip-budget-sweep) RUN_BUDGET_SWEEP="0"; shift 1 ;;
+    --skip-controls) RUN_CONTROLS="0"; shift 1 ;;
     --skip-ablations) RUN_ABLATIONS="0"; shift 1 ;;
     --skip-model-relative) RUN_MODEL_RELATIVE="0"; shift 1 ;;
+    --skip-qualitative) RUN_QUALITATIVE="0"; shift 1 ;;
     --aggregate-only)
       AGGREGATE_ONLY="1"
       RUN_MAIN="0"
       RUN_BUDGET_SWEEP="0"
+      RUN_CONTROLS="0"
       RUN_ABLATIONS="0"
       RUN_MODEL_RELATIVE="0"
+      RUN_QUALITATIVE="0"
       shift 1
       ;;
     -h|--help) usage; exit 0 ;;
@@ -387,6 +445,11 @@ if [[ "$AGGREGATE_ONLY" == "0" && "$RUN_BUDGET_SWEEP" == "1" ]]; then
   run_budget_sweep
 fi
 
+if [[ "$AGGREGATE_ONLY" == "0" && "$RUN_CONTROLS" == "1" ]]; then
+  log "Phase 2b: low-budget controls"
+  run_controls
+fi
+
 if [[ "$AGGREGATE_ONLY" == "0" && "$RUN_ABLATIONS" == "1" ]]; then
   log "Phase 3: evidence-type ablations"
   run_ablation "frame_only" "3" "0"
@@ -398,7 +461,12 @@ if [[ "$AGGREGATE_ONLY" == "0" && "$RUN_MODEL_RELATIVE" == "1" ]]; then
   run_model_relative
 fi
 
-log "Phase 5: aggregation"
+if [[ "$AGGREGATE_ONLY" == "0" && "$RUN_QUALITATIVE" == "1" ]]; then
+  log "Phase 5: qualitative case selection"
+  run_qualitative
+fi
+
+log "Phase 6: aggregation"
 run_aggregate
 
 log "Research run sheet complete."

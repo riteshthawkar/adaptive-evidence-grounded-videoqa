@@ -29,7 +29,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--summary-output", required=True, help="Path to summary JSON output.")
     parser.add_argument("--predictions-output", help="Optional JSONL output with per-example predictions.")
     parser.add_argument("--limit", type=int, default=None, help="Optional limit on number of examples.")
-    parser.add_argument("--answerer", choices=("lexical", "linear", "frozen_multimodal"), default="lexical", help="Answerer used to score acquired evidence.")
+    parser.add_argument(
+        "--answerer",
+        choices=("lexical", "linear", "frozen_multimodal", "calibrated_multimodal"),
+        default="lexical",
+        help="Answerer used to score acquired evidence.",
+    )
     parser.add_argument("--answerer-model-dir", help="Model directory for the linear answerer.")
     parser.add_argument(
         "--answerer-model-name",
@@ -40,7 +45,21 @@ def parse_args() -> argparse.Namespace:
         "--answerer-device",
         help="Optional device override for the frozen multimodal answerer, e.g. cpu, cuda, or mps.",
     )
-    parser.add_argument("--policy", choices=("keyword", "linear"), default="keyword", help="Sequential policy to evaluate.")
+    parser.add_argument(
+        "--policy",
+        choices=(
+            "keyword",
+            "linear",
+            "frame_once",
+            "segment_once",
+            "frame_segment_once",
+            "segment_frame_once",
+            "top_once",
+            "router_mlp",
+        ),
+        default="keyword",
+        help="Sequential policy to evaluate.",
+    )
     parser.add_argument("--policy-model-dir", help="Model directory for the trainable sequential policy.")
     parser.add_argument("--max-items", type=int, default=6, help="Maximum number of acquisitions before forced stop.")
     parser.add_argument(
@@ -192,7 +211,7 @@ def main() -> None:
         "answerer": args.answerer,
         "answerer_model_name": args.answerer_model_name if args.answerer == "frozen_multimodal" else None,
         "policy": args.policy,
-        "policy_model_dir": args.policy_model_dir if args.policy == "linear" else None,
+        "policy_model_dir": args.policy_model_dir if args.policy in {"linear", "router_mlp"} else None,
         "retriever": args.retriever,
         "visual_model_name": args.visual_model_name if args.retriever == "hybrid_clip" else None,
         "allocation": allocation.to_dict(),

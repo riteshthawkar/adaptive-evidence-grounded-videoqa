@@ -18,7 +18,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-traces-path", required=True, help="Path to training oracle-trace JSONL.")
     parser.add_argument("--validation-traces-path", help="Optional path to validation oracle-trace JSONL.")
     parser.add_argument("--model-dir", required=True, help="Directory to store the trained policy.")
-    parser.add_argument("--answerer", choices=("lexical", "linear", "frozen_multimodal"), default="lexical", help="Answerer used to featurize policy states.")
+    parser.add_argument(
+        "--answerer",
+        choices=("lexical", "linear", "frozen_multimodal", "calibrated_multimodal"),
+        default="lexical",
+        help="Answerer used to featurize policy states.",
+    )
     parser.add_argument("--answerer-model-dir", help="Model directory for the linear answerer.")
     parser.add_argument(
         "--answerer-model-name",

@@ -1,4 +1,6 @@
 import csv
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from adaptive_evidence_vqa.data.base import load_json
@@ -57,13 +59,17 @@ def build_duration_map(
     video_map: dict[str, str] | None = None,
     ffprobe_bin: str = "ffprobe",
 ) -> dict[str, float]:
-    durations: dict[str, float] = {}
     video_index = build_video_index(video_root)
+    video_ids = []
+    seen = set()
     for record in qa_records:
         raw_video_id = str(record.get("video_id") or record.get("video"))
-        if raw_video_id in durations:
+        if raw_video_id in seen:
             continue
+        seen.add(raw_video_id)
+        video_ids.append(raw_video_id)
 
+    def probe(raw_video_id: str) -> tuple[str, float] | None:
         mapped_video_id = video_map.get(raw_video_id, raw_video_id) if video_map else raw_video_id
         video_path = resolve_video_path(
             video_id=mapped_video_id,
@@ -71,8 +77,25 @@ def build_duration_map(
             video_index=video_index,
         )
         if video_path is None:
-            continue
-        durations[raw_video_id] = probe_video_duration(video_path, ffprobe_bin=ffprobe_bin)
+            return None
+        return raw_video_id, probe_video_duration(video_path, ffprobe_bin=ffprobe_bin)
+
+    workers = max(1, int(os.environ.get("AEVQA_FFPROBE_WORKERS", "1")))
+    if workers == 1:
+        durations: dict[str, float] = {}
+        for raw_video_id in video_ids:
+            result = probe(raw_video_id)
+            if result is not None:
+                durations[result[0]] = result[1]
+        return durations
+
+    durations = {}
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(probe, raw_video_id) for raw_video_id in video_ids]
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                durations[result[0]] = result[1]
     return durations
 
 

@@ -11,13 +11,13 @@ Usage:
     [--conda-env /path/to/conda-env-or-env-name] \
     [--gpus 0,1]
 
-Defaults are prefilled for the earlier Omkar multi-GPU machine:
-  --data-root   /home/omkar/ritesh/grounded_videoqa/data/nextgqa
-  --video-root  /home/omkar/ritesh/grounded_videoqa/data/nextgqa/videos
-  --run-root    /share/data/drive_1/omkar/grounded_videoqa_runs/nextgqa_full_multigpu_seed13
-  --conda-env   /home/omkar/ritesh/grounded_videoqa/conda-env
+Defaults are repository-relative and can be overridden with command-line flags:
+  --data-root   data/nextgqa_hf
+  --video-root  data/nextgqa_hf/NExTVideo
+  --run-root    runs/nextgqa_full_multigpu_seed13
+  --conda-env   adaptive-evidence-vqa
   --gpus        0,1,2,3
-  --cache-root  /share/data/drive_1/omkar/model_cache
+  --cache-root  .cache/model_cache
 
 Optional:
   --gpus                   Comma-separated GPU ids (default: 0,1,2,3)
@@ -53,12 +53,12 @@ require_dir() {
   fi
 }
 
-DATA_ROOT="/home/omkar/ritesh/grounded_videoqa/data/nextgqa"
-VIDEO_ROOT="/home/omkar/ritesh/grounded_videoqa/data/nextgqa/videos"
-RUN_ROOT="/share/data/drive_1/omkar/grounded_videoqa_runs/nextgqa_full_multigpu_seed13"
-CONDA_ENV_SPEC="/home/omkar/ritesh/grounded_videoqa/conda-env"
+DATA_ROOT="${DATA_ROOT:-data/nextgqa_hf}"
+VIDEO_ROOT="${VIDEO_ROOT:-data/nextgqa_hf/NExTVideo}"
+RUN_ROOT="${RUN_ROOT:-runs/nextgqa_full_multigpu_seed13}"
+CONDA_ENV_SPEC="${CONDA_ENV_SPEC:-adaptive-evidence-vqa}"
 GPU_IDS="0,1,2,3"
-CACHE_ROOT="/share/data/drive_1/omkar/model_cache"
+CACHE_ROOT="${CACHE_ROOT:-.cache/model_cache}"
 FEATURE_BATCH_SIZE="32"
 FEATURE_MODEL="openai/clip-vit-base-patch32"
 SUBTITLE_K="0"
