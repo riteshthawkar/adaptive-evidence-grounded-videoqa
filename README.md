@@ -2,8 +2,8 @@
 
 This repository is the working codebase for the project on adaptive evidence acquisition and minimal sufficient evidence for grounded VideoQA.
 
-If you are joining the project midstream, read `docs/SUBMISSION_READINESS.md` first.
-It summarizes the final research claim, the completed full-test results, and the artifacts that should be used for submission.
+If you are joining the project midstream, start with this README and the final report in
+`docs/report/final_paper.pdf`.
 
 ## Submission Snapshot
 
@@ -28,17 +28,16 @@ Important paper artifacts:
 - final report: `docs/report/final_paper.pdf`
 - report source: `docs/report/final_paper.tex`
 - presentation-values copy of the report: `docs/report/final_paper_presentation_values.pdf`
-- final readiness log: `docs/SUBMISSION_READINESS.md`
 - final Qwen metrics with bootstrap confidence intervals and question-type breakdowns:
-  `docs/artifacts/final_metrics/qwen_test_followup_compare.md`
+  `docs/artifacts/final_metrics/qwen_test_followup_compare.json`
 - temporal-router diagnostic metrics:
-  `docs/artifacts/final_metrics/qwen_test_temporal_router_compare.md`
+  `docs/artifacts/final_metrics/qwen_test_temporal_router_compare.json`
 - frozen-answerer controls and candidate-pool ablations:
   `docs/artifacts/final_metrics/`
 - main qualitative figure: `docs/report/qualitative_cases.pdf`
 - appendix qualitative figure: `docs/report/appendix_qualitative_cases.pdf`
 - final tradeoff figure: `docs/report/qwen_current_tradeoff_presentation.pdf`
-- sample demo input/output: `demo/nextgqa_qwen_sample.md`
+- sample demo input/output: `demo/README.md`
 
 Reproduce the final Qwen follow-up evaluations:
 
@@ -334,7 +333,7 @@ Aggregate multiple seeded runs into a paper-ready mean/std table:
 python scripts/aggregate_run_summaries.py \
   --run-roots runs/nextgqa_500_200_seed13 runs/nextgqa_500_200_seed21 runs/nextgqa_500_200_seed34 \
   --output-json runs/nextgqa_500_200_aggregate.json \
-  --output-markdown runs/nextgqa_500_200_aggregate.md
+  --output-markdown runs/nextgqa_500_200_aggregate.txt
 ```
 
 After a full-data cache run is complete, use the research run sheet for extended experiment blocks:
@@ -534,7 +533,7 @@ The repository is organized to satisfy the final artifact requirements:
 - code and runnable entry points are in `src/` and `scripts/`;
 - dependency and install instructions are in `environment.yml`, `pyproject.toml`, and this README;
 - dataset download and expected-layout notes are listed above;
-- sample input/output is in `demo/nextgqa_qwen_sample.md`;
+- sample input/output is in `demo/README.md`;
 - the final report and figures are in `docs/report/`;
 - lightweight final metric summaries are in `docs/artifacts/final_metrics/`;
 - external code and dataset references are credited in the report bibliography and the external-reference section below.

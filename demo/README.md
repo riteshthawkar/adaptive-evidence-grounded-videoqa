@@ -58,4 +58,4 @@ runs/nextgqa_full_seed13/outputs/followup_strengthening/qwen/predictions/test_ro
 
 The full prediction JSONL is large and is not required in the lightweight GitHub
 artifact package; aggregate metrics are copied to
-`docs/artifacts/final_metrics/qwen_test_followup_compare.md`.
+`docs/artifacts/final_metrics/qwen_test_followup_compare.json`.
