@@ -1,8 +1,6 @@
 # NExT-GQA Qwen Evidence-Answering Demo
 
-This demo records one concrete test example from the final `Qwen MLP+NMS (Our)`
-run. It is a lightweight sample input/output artifact; full reproduction commands
-are in the main README.
+This demo records one concrete NExT-GQA test example evaluated with the `Qwen MLP+NMS` evidence selector. It provides a compact sample of the expected input format, selected evidence, and parsed model output.
 
 ## Sample Input
 
@@ -56,5 +54,4 @@ Local source prediction file from the full experiment cache:
 runs/nextgqa_full_seed13/outputs/followup_strengthening/qwen/predictions/test_router_mlp_top2_nms0p0.jsonl
 ```
 
-The full prediction JSONL is large and is not required in the lightweight GitHub
-artifact package; aggregate metrics are reported in the final report.
+The full prediction JSONL is omitted from version control because full runs produce large prediction and frame-cache artifacts. Aggregate metrics are reported in `docs/report/final_paper.pdf`.

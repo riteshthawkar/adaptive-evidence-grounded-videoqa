@@ -1,200 +1,124 @@
-# Adaptive Minimal Evidence Acquisition for Grounded VideoQA
+# Adaptive Evidence Acquisition for Grounded VideoQA
 
-This repository is the working codebase for the project on adaptive evidence acquisition and minimal sufficient evidence for grounded VideoQA.
+This repository implements a grounded VideoQA pipeline for studying adaptive visual evidence acquisition. Instead of answering every question from a fixed number of frames or clips, the system builds a candidate pool of keyframes and short temporal segments, selects a compact evidence set, and then answers with a frozen vision-language model.
 
-If you are joining the project midstream, start with this README and the final report in
-`docs/report/final_paper.pdf`.
+The central question is whether a VideoQA system can reduce visual evidence cost while preserving answer accuracy and temporal grounding quality.
 
-## Submission Snapshot
+## Research Artifacts
 
-As of May 1, 2026, the main submission artifact is the final NeurIPS-style report in
-`docs/report/final_paper.pdf`.
-The main content ends on page 9; references begin on page 10 and the appendix follows.
+- Report: `docs/report/final_paper.pdf`
+- Presentation: `docs/presentation/research_presentation.pptx`
+- Demo input/output: `demo/README.md`
 
-The completed full-test result uses Qwen2.5-VL-3B-Instruct as the answerer on all
-`5,553` NExT-GQA test examples. The proposed learned operating point is
-`Qwen MLP+NMS (Our)`.
-
-| Method | Split | Acc@QA | Cost | Count | mIoP | IoP@0.5 | mIoU | IoU@0.5 | Acc@GQA |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Qwen one segment | test | `0.668` | `1.500` | `1.000` | `0.301` | `0.311` | `0.165` | `0.133` | `0.221` |
-| Qwen MLP+NMS (Our) | test | `0.689` | `2.935` | `2.000` | `0.440` | `0.453` | `0.246` | `0.210` | `0.321` |
-| Qwen temporal-supervised router | test | `0.696` | `2.273` | `2.000` | `0.433` | `0.432` | `0.088` | `0.075` | `0.312` |
-| Qwen oracle top-2 | test | `0.701` | `2.493` | `2.000` | `0.618` | `0.615` | `0.224` | `0.207` | `0.442` |
-| Qwen fixed 3 frames + 3 segments | test | `0.724` | `7.500` | `6.000` | `0.618` | `0.615` | `0.296` | `0.287` | `0.454` |
-
-Important paper artifacts:
-
-- final report: `docs/report/final_paper.pdf`
-- final presentation: `docs/presentation/research_presentation.pptx`
-- sample demo input/output: `demo/README.md`
-
-Reproduce the final Qwen follow-up evaluations:
-
-```bash
-export PYTHONPATH=src:.
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-bash scripts/run_qwen_followup_strengthening.sh test
-bash scripts/run_qwen_temporal_router.sh test
-```
-
-The Qwen runners use resumable prediction files, so interrupted jobs continue from
-existing JSONL outputs.
-The full local `data/` and `runs/` directories are intentionally ignored for GitHub
-submission because they contain raw videos, frame caches, and large prediction files.
-The final numerical summaries are reported in the final report.
-
-## Pipeline Overview
+## Pipeline
 
 ![Adaptive evidence acquisition pipeline](assets/pipeline_main_figure.png)
 
-The repository is intentionally built as a fresh research codebase instead of forking one older paper repo wholesale. That is the right tradeoff for this project:
+The pipeline has four stages:
 
-- the official TVQA repository is useful as a data and evaluation reference, but it is tightly coupled to its original modeling stack;
-- the TVQA+ / STAGE code is useful for grounding supervision and annotations, but it uses an older environment and is not a good base for new retrieval-policy work;
-- FrozenBiLM is the cleanest modern baseline reference for VideoQA training structure, but its modeling assumptions are still different from sequential evidence acquisition.
+1. Normalize VideoQA annotations into a shared schema.
+2. Construct a visual evidence pool from frames and short temporal segments.
+3. Select evidence with fixed, learned, temporal-supervised, or oracle selectors.
+4. Answer with Qwen2.5-VL and evaluate answer accuracy, cost, and temporal grounding.
 
-Those projects are used as references and, where appropriate, only the required parts are ported:
+## Main Result
 
-- dataset adapters and preprocessing conventions from TVQA / TVQA+;
-- evaluation logic for localized or grounded VideoQA where available;
-- training and experiment organization inspired by more modern baseline code.
+The reported NExT-GQA test results use Qwen2.5-VL-3B-Instruct as the answerer on 5,553 examples. `MLP+NMS` is the proposed learned selector.
 
-## Research Objective
+| Method | Acc@QA | Cost | Count | mIoP | IoP@0.5 | mIoU | IoU@0.5 | Acc@GQA |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Qwen one segment | `0.668` | `1.500` | `1.000` | `0.301` | `0.311` | `0.165` | `0.133` | `0.221` |
+| Qwen MLP+NMS | `0.689` | `2.935` | `2.000` | `0.440` | `0.453` | `0.246` | `0.210` | `0.321` |
+| Qwen temporal-supervised router | `0.696` | `2.273` | `2.000` | `0.433` | `0.432` | `0.088` | `0.075` | `0.312` |
+| Qwen oracle top-2 | `0.701` | `2.493` | `2.000` | `0.618` | `0.615` | `0.224` | `0.207` | `0.442` |
+| Qwen fixed 3 frames + 3 segments | `0.724` | `7.500` | `6.000` | `0.618` | `0.615` | `0.296` | `0.287` | `0.454` |
 
-The method studies adaptive visual evidence acquisition:
+The main finding is an accuracy-cost-grounding tradeoff. `MLP+NMS` improves grounded answer accuracy over the one-segment control at less than half the cost of the fixed 3+3 reference. Oracle top-2 shows that compact supporting evidence often exists in the candidate pool, leaving routing quality as the main bottleneck.
 
-1. construct a visual evidence pool from keyframes and short temporal segments;
-2. score candidate evidence using question-answer and visual features;
-3. select a compact evidence set before calling a frozen VLM answerer;
-4. evaluate the answerer with accuracy, grounding, and acquisition-cost metrics.
+## Method Components
 
-The main scientific target is the tradeoff between:
-
-- answer accuracy,
-- evidence faithfulness,
-- evidence compactness,
-- acquisition cost.
-
-## Objective And Novelty
-
-The final research direction is:
-
-- formulate grounded VideoQA as a sequential evidence-acquisition problem rather than a fixed-context prediction problem;
-- study minimal sufficient evidence as a model-relative property rather than an absolute one;
-- retrieve from visual evidence sources: keyframes and short temporal segments;
-- approximate constrained minimal evidence sets offline under explicit oracle modes;
-- compare weak and stronger answerers to measure how evidence size, faithfulness, and transfer change.
-
-The main novelty claim is not ``use three modalities.''
-That is already well explored in the literature.
-The actual contribution we are targeting is:
-
-- model-relative minimal evidence rather than generic top-$K$ retrieval;
-- budget-aware evidence acquisition under a fixed evidence cap;
-- grounded and faithful evidence selection, not only answer accuracy;
-- a clear accuracy-cost-faithfulness evaluation protocol;
-- transfer analysis across answerer strength, so the paper studies whether a "minimal" evidence set is stable across models.
-
-This repository is therefore organized as a research codebase for:
-
-1. strong fixed-budget baselines;
-2. constrained oracle construction;
-3. trainable visual evidence routers;
-4. reproducible ablations and evaluation.
-
-## Current Implementation Status
-
-What is implemented today:
-
-- TVQA and TVQA+ normalization into a shared JSONL schema.
-- NExT-GQA normalization from official CSV annotations, grounding JSON, frame-time JSON, and video-id maps.
-- Candidate-pool construction from normalized records.
-- Real visual artifact materialization from source videos with `ffmpeg`.
-- CLIP-based frame and segment feature extraction.
-- Three retrieval modes: lexical, BM25, and hybrid CLIP retrieval.
-- A fixed-budget evaluation runner with accuracy, sufficiency, comprehensiveness, temporal IoU, and oracle-validity reporting.
-- A trainable linear evidence-conditioned answerer baseline.
-- A stronger frozen multimodal answerer backend using CLIP text embeddings plus the existing visual feature store.
-- A constrained minimal-evidence oracle with explicit modes for prediction-preserving, correctness-only, correctness-plus-sufficiency, and correctness-plus-sufficiency-plus-grounding comparisons.
-- Oracle trace export for imitation learning.
-- A trainable sequential acquisition policy over `acquire_subtitle`, `acquire_frame`, `acquire_segment`, and `stop`.
-- A model-relative study runner that compares minimal-evidence subsets across two answerers and records subset overlap, modality agreement, temporal agreement, and transfer gaps.
-- A multi-GPU HPC-oriented orchestration script for the current end-to-end pipeline.
-- A focused NExT-GQA HPC runner that packages the validated single-GPU experiment flow into one script.
-- A Qwen2.5-VL evaluation runner with resumable prediction JSONL files.
-- A learned MLP evidence router with optional temporal NMS.
-- A temporal-supervised router used as a diagnostic ablation.
-- Bootstrap confidence intervals, question-type breakdowns, tradeoff plots, and qualitative case selection scripts for the final paper.
-
-What has been validated:
-
-- unit and integration coverage over preprocessing, retrieval, visual materialization, answerer, oracle, and policy code;
-- a workspace-local end-to-end dry run through normalization, candidate building, visual extraction, CLIP features, hybrid retrieval, answerer training, oracle export, policy training, and sequential evaluation;
-- the current test suite passes in the Conda environment.
-- a real-data NExT-GQA smoke run (`100` train / `50` validation) completed end to end;
-- a controlled NExT-GQA subset experiment (`500` train / `200` validation) completed over `3` seeds.
-- full NExT-GQA test-set Qwen evaluation completed for the final reported methods.
-
-The final full-test result supports the following interpretation:
-
-- single-segment evidence is cheap but weakly grounded: `0.668` Acc@QA and `0.221` Acc@GQA at cost `1.500`;
-- `MLP+NMS` improves grounded answer accuracy to `0.321` at cost `2.935`, making it the final proposed learned selector;
-- the temporal-supervised router is cheaper and slightly higher on answer accuracy, but its lower IoU makes it a diagnostic ablation rather than the main method;
-- oracle top-2 nearly matches the high-cost fixed 3+3 grounded score, showing that the candidate pool contains compact evidence and the remaining bottleneck is routing.
-
-Dry-run outputs from the latest local validation are under:
-
-- `outputs/dry_run/normalized`
-- `outputs/dry_run/candidates`
-- `outputs/dry_run/features`
-- `outputs/dry_run/models`
-- `outputs/dry_run/outputs`
-
-Important limitations to report honestly:
-
-- the new frozen multimodal answerer is stronger than the linear baseline, but it is still a frozen baseline rather than a competitive fine-tuned VLM;
-- the main learned selector uses frozen CLIP-style features and a compact MLP router rather than an end-to-end trained video-language model;
-- the grounding metric is computed from selected evidence overlap with NExT-GQA temporal annotations, so it measures evidence faithfulness rather than pixel-level localization;
-- subtitle-aware and cross-dataset claims remain secondary because the final empirical story is visual evidence acquisition on NExT-GQA.
+- `One segment`: low-cost control that selects the highest-scoring segment.
+- `Linear policy`: sequential learned policy trained from oracle traces.
+- `MLP router`: lightweight candidate scorer over frozen visual/question features.
+- `MLP+NMS`: MLP router with temporal non-maximum suppression to reduce redundant selections.
+- `Temporal-supervised router`: diagnostic selector trained from temporal overlap labels.
+- `Oracle top-k`: non-deployable upper-bound selector using ground-truth temporal overlap.
+- `Fixed 3+3`: high-cost reference using three frames and three segments.
 
 ## Repository Layout
 
 ```text
+assets/                     Figures used by the README
 configs/                    Experiment configuration templates
-docs/                       Final report and final presentation
-scripts/                    Entry-point scripts for preprocessing and training
+demo/                       Sample input/output artifact
+docs/                       Final report and presentation
+scripts/                    Preprocessing, training, evaluation, and analysis entry points
 src/adaptive_evidence_vqa/  Python package
-tests/                      Unit tests for core logic
+tests/                      Unit and integration tests
 ```
 
-Within the package:
+Package modules:
 
 ```text
-data/       Dataset schemas and adapters
-retrieval/  Evidence pool construction and candidate retrieval interfaces
-models/     Answerer, oracle, and acquisition policy modules
-eval/       Accuracy, grounding, and sufficiency metrics
+data/       Dataset schemas, normalization, candidate pools, and visual artifacts
+retrieval/  Lexical, BM25, and hybrid CLIP retrieval utilities
+models/     Answerers, oracle construction, policies, and evidence routers
+eval/       Accuracy, grounding, sufficiency, and aggregation metrics
 ```
 
-The first concrete dataset support is now wired for:
+Large local artifacts are intentionally excluded from version control:
 
-- raw `TVQA` question JSONL + subtitle JSONL;
-- raw `TVQA+` question JSON + subtitle JSON.
-- raw `NExT-GQA` CSV plus optional `gsub_*.json`, `frame2time_*.json` / `upbd_*.json`, and `map_vid_vidorID.json`.
+```text
+data/       Raw datasets and downloaded videos
+runs/       Full experiment outputs, frame caches, predictions, and metrics
+outputs/    Small local/debug outputs
+```
 
-Both are normalized into a common JSONL schema before training.
-After normalization, a separate candidate-pool stage generates subtitle chunks, segment windows,
-and frame timestamps for retrieval and oracle construction.
+## Installation
 
-## Dataset Download Notes
+Create the Conda environment:
 
-The final experiments use NExT-GQA annotations and videos. The repository does not
-store credentials in source control. If using the Hugging Face mirror, put
-`HF_TOKEN=...` in a local `.env` file or export it in the shell before running the
-download/evaluation scripts.
+```bash
+conda env create -f environment.yml
+conda activate adaptive-evidence-vqa
+```
 
-Expected local layout for the completed runs:
+Update an existing environment:
+
+```bash
+conda env update -f environment.yml --prune
+conda activate adaptive-evidence-vqa
+```
+
+The package is installed in editable mode through `environment.yml`. To install manually:
+
+```bash
+pip install -e ".[dev,vision,train]"
+```
+
+Run the tests:
+
+```bash
+python -m pytest
+```
+
+Run a minimal toy pipeline:
+
+```bash
+python -m adaptive_evidence_vqa toy-run
+```
+
+Print the default configuration:
+
+```bash
+python -m adaptive_evidence_vqa print-config
+```
+
+## Dataset Setup
+
+The main experiments use NExT-GQA annotations and videos. This repository does not include raw videos or credentials. If using a gated Hugging Face mirror, provide `HF_TOKEN` in a local `.env` file or export it in the shell. Do not commit `.env`.
+
+Expected local layout:
 
 ```text
 data/nextgqa_hf/
@@ -207,58 +131,11 @@ data/nextgqa_hf/
   NExTVideo/<group>/<video_id>.mp4
 ```
 
-The normalization scripts also accept equivalent paths supplied from the official
-NExT-GQA release or course-provided storage. The completed local run used
-`data/nextgqa_hf/` as the data root and `data/nextgqa_hf/NExTVideo/` as the video
-root.
+Equivalent paths from the official NExT-GQA release or private storage can be supplied through script arguments.
 
-## Quick Start
+## Common Commands
 
-Use the project Conda environment instead of the global interpreter:
-
-```bash
-conda env create -f environment.yml
-conda activate adaptive-evidence-vqa
-```
-
-If the environment already exists, update it in place:
-
-```bash
-conda env update -f environment.yml --prune
-conda activate adaptive-evidence-vqa
-```
-
-Run the toy pipeline:
-
-```bash
-python -m adaptive_evidence_vqa toy-run
-```
-
-Print the default configuration:
-
-```bash
-python -m adaptive_evidence_vqa print-config
-```
-
-Normalize raw TVQA annotations:
-
-```bash
-python scripts/prepare_tvqa.py \
-  --qa-path /path/to/tvqa_train.jsonl \
-  --subtitles-path /path/to/tvqa_preprocessed_subtitles.jsonl \
-  --output-path data/normalized/tvqa_train.jsonl
-```
-
-Normalize raw TVQA+ annotations:
-
-```bash
-python scripts/prepare_tvqa_plus.py \
-  --qa-path /path/to/tvqa_plus_train_preprocessed.json \
-  --subtitles-path /path/to/tvqa_plus_subtitles.json \
-  --output-path data/normalized/tvqa_plus_train.jsonl
-```
-
-Normalize raw NExT-GQA annotations:
+Normalize NExT-GQA annotations:
 
 ```bash
 python scripts/prepare_nextgqa.py \
@@ -269,275 +146,73 @@ python scripts/prepare_nextgqa.py \
   --output-path data/normalized/nextgqa_val.jsonl
 ```
 
-For training splits, add `--video-root /path/to/videos` so the script can probe full-video duration when no
-grounded span or frame-time file is available:
-
-```bash
-python scripts/prepare_nextgqa.py \
-  --qa-path /path/to/nextgqa/train.csv \
-  --video-map-path /path/to/nextgqa/map_vid_vidorID.json \
-  --video-root /path/to/videos \
-  --output-path data/normalized/nextgqa_train.jsonl
-```
-
-Build a candidate pool from normalized examples:
+Build a candidate pool:
 
 ```bash
 python scripts/build_candidate_pool.py \
-  --input-path data/normalized/tvqa_train.jsonl \
-  --output-path data/candidates/tvqa_train_candidates.jsonl
+  --input-path data/normalized/nextgqa_val.jsonl \
+  --output-path data/candidates/nextgqa_val_candidates.jsonl
 ```
 
-Materialize real frame artifacts and optional segment clips from source videos:
+Materialize frame and segment evidence:
 
 ```bash
 python scripts/materialize_visual_evidence.py \
-  --input-path data/candidates/tvqa_train_candidates.jsonl \
-  --video-root /path/to/tvqa_videos \
-  --output-path data/candidates/tvqa_train_visual.jsonl \
+  --input-path data/candidates/nextgqa_val_candidates.jsonl \
+  --video-root data/nextgqa_hf/NExTVideo \
+  --output-path data/candidates/nextgqa_val_visual.jsonl \
   --frames-dir data/artifacts/frames \
   --segments-dir data/artifacts/segments \
   --extract-segments
 ```
 
-Extract CLIP features for materialized frame and segment evidence:
+Extract CLIP features:
 
 ```bash
 python scripts/extract_clip_features.py \
-  --input-path data/candidates/tvqa_train_visual.jsonl \
-  --output-path data/candidates/tvqa_train_visual_features.jsonl \
+  --input-path data/candidates/nextgqa_val_visual.jsonl \
+  --output-path data/candidates/nextgqa_val_visual_features.jsonl \
   --feature-dir data/features/clip
 ```
 
-Run the validated end-to-end NExT-GQA experiment flow on an HPC machine:
+Run Qwen follow-up evaluations:
 
 ```bash
-bash scripts/run_nextgqa_experiment.sh \
-  --data-root /path/to/nextgqa \
-  --video-root /path/to/nextgqa/videos \
-  --run-root /path/to/output/run \
-  --conda-prefix /path/to/conda-env \
-  --train-limit 500 \
-  --val-limit 200
+export PYTHONPATH=src:.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+bash scripts/run_qwen_followup_strengthening.sh test
+bash scripts/run_qwen_temporal_router.sh test
 ```
 
-Aggregate multiple seeded runs into a paper-ready mean/std table:
-
-```bash
-python scripts/aggregate_run_summaries.py \
-  --run-roots runs/nextgqa_500_200_seed13 runs/nextgqa_500_200_seed21 runs/nextgqa_500_200_seed34 \
-  --output-json runs/nextgqa_500_200_aggregate.json \
-  --output-markdown runs/nextgqa_500_200_aggregate.txt
-```
-
-After a full-data cache run is complete, use the research run sheet for extended experiment blocks:
-
-```bash
-bash scripts/research_run_sheet.sh
-```
-
-For a single-GPU machine with roughly `24 GB` VRAM, use:
+Run the single-GPU research wrapper:
 
 ```bash
 bash scripts/run_research_single_gpu.sh
 ```
 
-Those launchers assume cached full-data artifacts already exist and focus on the experiments that matter most for the final paper: full-data learned-policy seeds, fixed-budget sweep, evidence-type ablations, and model-relative analysis.
-
-Run a fixed-allocation baseline on candidate pools:
+Run the full-data cache wrapper:
 
 ```bash
-python scripts/run_fixed_budget_baseline.py \
-  --input-path data/candidates/tvqa_train_candidates.jsonl \
-  --summary-output outputs/fixed_budget_summary.json \
-  --predictions-output outputs/fixed_budget_predictions.jsonl \
-  --answerer lexical \
-  --retriever bm25 \
-  --subtitle-k 2 \
-  --frame-k 2 \
-  --segment-k 2
+bash scripts/run_nextgqa_full_single_gpu.sh
 ```
 
-Train the fixed-budget linear answerer baseline:
+All full-data runners write to `runs/` by default and use resumable JSONL outputs.
 
-```bash
-python scripts/train_answerer.py \
-  --train-path data/candidates/tvqa_train_candidates.jsonl \
-  --validation-path data/candidates/tvqa_val_candidates.jsonl \
-  --model-dir outputs/answerer_linear_bm25 \
-  --retriever bm25 \
-  --subtitle-k 2 \
-  --frame-k 2 \
-  --segment-k 2
-```
+## Evaluation Metrics
 
-Evaluate the trained answerer with the same baseline runner:
-
-```bash
-python scripts/run_fixed_budget_baseline.py \
-  --input-path data/candidates/tvqa_val_candidates.jsonl \
-  --summary-output outputs/fixed_budget_linear_summary.json \
-  --answerer linear \
-  --answerer-model-dir outputs/answerer_linear_bm25 \
-  --retriever bm25 \
-  --subtitle-k 2 \
-  --frame-k 2 \
-  --segment-k 2
-```
-
-Export oracle acquisition traces from a retrieved seed set:
-
-```bash
-python scripts/export_oracle_traces.py \
-  --input-path data/candidates/tvqa_train_candidates.jsonl \
-  --output-path outputs/oracle_traces.jsonl \
-  --answerer linear \
-  --answerer-model-dir outputs/answerer_linear_bm25 \
-  --retriever bm25 \
-  --oracle-mode correctness_plus_sufficiency_plus_grounding \
-  --oracle-min-sufficiency 0.8 \
-  --oracle-min-temporal-iou 0.1 \
-  --subtitle-k 2 \
-  --frame-k 2 \
-  --segment-k 2
-```
-
-By default, invalid oracle traces are skipped. Use `--include-invalid-traces` only for debugging, not
-for the main imitation-learning experiments.
-
-Compare model-relative minimal evidence across two answerers:
-
-```bash
-python scripts/run_model_relative_study.py \
-  --input-path data/candidates/tvqa_val_visual_features.jsonl \
-  --output-dir outputs/model_relative_linear_vs_frozen \
-  --answerer-a linear \
-  --answerer-a-model-dir outputs/answerer_linear_bm25 \
-  --answerer-a-label linear \
-  --answerer-b frozen_multimodal \
-  --answerer-b-label frozen_multimodal \
-  --retriever hybrid_clip \
-  --oracle-mode correctness_plus_sufficiency_plus_grounding \
-  --oracle-min-sufficiency 0.8 \
-  --oracle-min-temporal-iou 0.1 \
-  --subtitle-k 2 \
-  --frame-k 2 \
-  --segment-k 2
-```
-
-Train the sequential imitation policy from oracle traces:
-
-```bash
-python scripts/train_policy.py \
-  --train-traces-path outputs/oracle_traces.jsonl \
-  --validation-traces-path outputs/oracle_val_traces.jsonl \
-  --model-dir outputs/policy_linear \
-  --answerer linear \
-  --answerer-model-dir outputs/answerer_linear_bm25
-```
-
-Evaluate the learned sequential policy on candidate pools:
-
-```bash
-python scripts/run_sequential_policy.py \
-  --input-path data/candidates/tvqa_val_candidates.jsonl \
-  --summary-output outputs/sequential_policy_summary.json \
-  --answerer linear \
-  --answerer-model-dir outputs/answerer_linear_bm25 \
-  --policy linear \
-  --policy-model-dir outputs/policy_linear \
-  --retriever bm25 \
-  --subtitle-k 2 \
-  --frame-k 2 \
-  --segment-k 2 \
-  --max-items 6
-```
-
-Run the low-budget control suite and fixed-budget sweep used to check whether
-the learned policy is doing more than selecting the first high-scoring visual item:
-
-```bash
-python scripts/run_research_controls.py \
-  --input-path data/candidates/nextgqa_val_visual_features.jsonl \
-  --output-dir outputs/research_controls \
-  --answerer frozen_multimodal \
-  --answerer-device cuda \
-  --retriever hybrid_clip \
-  --visual-device cuda \
-  --subtitle-k 0 \
-  --frame-k 3 \
-  --segment-k 3 \
-  --fixed-budget-ks 1,2,3,4 \
-  --write-predictions
-```
-
-Select qualitative examples for the final report from fixed-budget and policy prediction files:
-
-```bash
-python scripts/select_qualitative_cases.py \
-  --fixed-predictions outputs/fixed_budget_frozen.predictions.jsonl \
-  --policy-predictions outputs/sequential_policy_frozen.predictions.jsonl \
-  --output-json outputs/qualitative_cases.json
-```
-
-For an HPC-style end-to-end run across multiple GPUs, use:
-
-```bash
-bash scripts/run_multigpu_pipeline.sh \
-  --dataset tvqa \
-  --train-qa /path/to/tvqa_train.jsonl \
-  --train-subtitles /path/to/tvqa_preprocessed_subtitles.jsonl \
-  --val-qa /path/to/tvqa_val.jsonl \
-  --val-subtitles /path/to/tvqa_preprocessed_subtitles.jsonl \
-  --video-root /path/to/tvqa_videos \
-  --run-root /path/to/experiment_run \
-  --gpus 0,1
-```
-
-This runner parallelizes the CLIP-heavy stages across GPUs and keeps the current linear answerer/policy stages on CPU.
-
-Run the test suite from the Conda environment:
-
-```bash
-python -m pytest
-```
-
-## Recommended Reading Order For New Contributors
-
-For someone joining the project midstream, the fastest way to get oriented is:
-
-1. read this README for the research objective, novelty, and current implementation status;
-2. read `docs/report/final_paper.pdf` for the final-report narrative and results;
-3. inspect `configs/experiment.template.yaml` for the current experiment assumptions;
-4. inspect `scripts/` in pipeline order: preprocessing, candidate building, visual extraction, answerer training, oracle export, policy training, and evaluation;
-5. inspect `outputs/dry_run/` for a fully executed miniature run.
+- `Acc@QA`: multiple-choice answer accuracy.
+- `Cost`: average acquired evidence cost.
+- `Count`: average number of selected evidence items.
+- `mIoP`: mean intersection over prediction between selected evidence and ground-truth support.
+- `IoP@0.5`: fraction of examples with evidence IoP at least 0.5.
+- `mIoU`: mean temporal intersection over union.
+- `IoU@0.5`: fraction of examples with temporal IoU at least 0.5.
+- `Acc@GQA`: answer accuracy gated by temporal grounding success.
 
 ## External References
 
-These are references, not vendored dependencies:
+This repository is an independent implementation. The following projects are used as references for datasets, preprocessing conventions, or baseline context:
 
-- TVQA official repository: <https://github.com/jayleicn/TVQA>
-- TVQA+ / STAGE official repository: <https://github.com/jayleicn/TVQAplus>
-- FrozenBiLM VideoQA repository: <https://github.com/antoyang/FrozenBiLM>
-
-## Submission Package Checklist
-
-The repository is organized to satisfy the final artifact requirements:
-
-- code and runnable entry points are in `src/` and `scripts/`;
-- dependency and install instructions are in `environment.yml`, `pyproject.toml`, and this README;
-- dataset download and expected-layout notes are listed above;
-- sample input/output is in `demo/README.md`;
-- the final report is in `docs/report/final_paper.pdf`;
-- the final presentation is in `docs/presentation/research_presentation.pptx`;
-- external code and dataset references are credited in the report bibliography and the external-reference section below.
-
-Do not commit or upload `.env`; it may contain `HF_TOKEN`. Do not upload the full
-local `data/` or `runs/` directories; use the dataset download instructions instead.
-
-## Optional Future Work
-
-1. integrate an official NExT-GQA single-span evaluator if a compatible release is available;
-2. test segment evidence with multiple sampled frames per segment to better capture motion;
-3. train a router that uses VLM feedback or lightweight temporal features beyond frozen CLIP similarity;
-4. extend the visual-evidence acquisition protocol to subtitle-rich grounded VideoQA datasets.
+- TVQA: <https://github.com/jayleicn/TVQA>
+- TVQA+ / STAGE: <https://github.com/jayleicn/TVQAplus>
+- FrozenBiLM: <https://github.com/antoyang/FrozenBiLM>
