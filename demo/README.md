@@ -1,6 +1,34 @@
-# NExT-GQA Qwen Evidence-Answering Demo
+# NExT-GQA Router And Qwen Demo
 
-This demo records one concrete NExT-GQA test example evaluated with the `Qwen MLP+NMS` evidence selector. It provides a compact sample of the expected input format, selected evidence, and parsed model output.
+This demo records one concrete NExT-GQA test example evaluated with the `Qwen MLP+NMS` evidence selector. It includes a runnable learned-router selection path and a recorded Qwen answer for the selected evidence.
+
+The runnable part uses:
+
+- router checkpoint: `artifacts/router_mlp_oracle_top2/`
+- candidate record: `demo/nextgqa_sample_candidates.jsonl`
+- fixed 3+3 evidence pool: `demo/nextgqa_sample_fixed_f3_s3_pool.jsonl`
+- CLIP feature bundle: `demo/features/nextgqa_5600915537_9.npz`
+
+Run the router demo from the repository root:
+
+```bash
+PYTHONPATH=src:. python scripts/create_followup_evidence_selections.py \
+  --candidate-path demo/nextgqa_sample_candidates.jsonl \
+  --pool-selection-path demo/nextgqa_sample_fixed_f3_s3_pool.jsonl \
+  --output-dir demo/outputs \
+  --split sample \
+  --router-model-dir artifacts/router_mlp_oracle_top2 \
+  --nms-thresholds 0.0
+```
+
+The command writes `demo/outputs/sample_router_mlp_top2_nms0p0.jsonl`. It should select:
+
+```text
+nextgqa:5600915537:9:segment:19
+nextgqa:5600915537:9:segment:16
+```
+
+The recorded Qwen answer below requires the source visual inputs and Qwen2.5-VL runtime, so it is provided as a compact expected output rather than as a fully self-contained video-generation artifact.
 
 ## Sample Input
 

@@ -8,7 +8,8 @@ The central question is whether a VideoQA system can reduce visual evidence cost
 
 - Report: `docs/report/final_paper.pdf`
 - Presentation: `docs/presentation/research_presentation.pptx`
-- Demo input/output: `demo/README.md`
+- Released MLP router checkpoint: `artifacts/router_mlp_oracle_top2/`
+- Runnable router demo: `demo/README.md`
 
 ## Pipeline
 
@@ -48,6 +49,7 @@ The main finding is an accuracy-cost-grounding tradeoff. `MLP+NMS` improves grou
 ## Repository Layout
 
 ```text
+artifacts/                  Released lightweight router checkpoint
 assets/                     Figures used by the README
 configs/                    Experiment configuration templates
 demo/                       Sample input/output artifact
@@ -113,6 +115,20 @@ Print the default configuration:
 ```bash
 python -m adaptive_evidence_vqa print-config
 ```
+
+Run the bundled learned-router demo:
+
+```bash
+PYTHONPATH=src:. python scripts/create_followup_evidence_selections.py \
+  --candidate-path demo/nextgqa_sample_candidates.jsonl \
+  --pool-selection-path demo/nextgqa_sample_fixed_f3_s3_pool.jsonl \
+  --output-dir demo/outputs \
+  --split sample \
+  --router-model-dir artifacts/router_mlp_oracle_top2 \
+  --nms-thresholds 0.0
+```
+
+This demo runs the shipped MLP router checkpoint on one NExT-GQA example using bundled CLIP feature arrays. It verifies evidence selection without requiring raw videos, Qwen weights, or full prediction caches.
 
 ## Dataset Setup
 

@@ -3,6 +3,7 @@
 /data/
 /runs/
 /outputs/
+/demo/outputs/
 __pycache__/
 *.py[cod]
 *.egg-info/
