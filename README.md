@@ -6,8 +6,8 @@ The central question is whether a VideoQA system can reduce visual evidence cost
 
 ## Research Artifacts
 
-- Report: `docs/report/final_paper.pdf`
-- Presentation: `docs/presentation/research_presentation.pptx`
+- Report: `docs/report/adaptive_evidence_acquisition_grounded_videoqa_report.pdf`
+- Presentation: `docs/presentation/adaptive_evidence_acquisition_grounded_videoqa_presentation.pptx`
 - Released MLP router checkpoint: `artifacts/router_mlp_oracle_top2/`
 - Runnable router demo: `demo/README.md`
 

@@ -82,4 +82,4 @@ Local source prediction file from the full experiment cache:
 runs/nextgqa_full_seed13/outputs/followup_strengthening/qwen/predictions/test_router_mlp_top2_nms0p0.jsonl
 ```
 
-The full prediction JSONL is omitted from version control because full runs produce large prediction and frame-cache artifacts. Aggregate metrics are reported in `docs/report/final_paper.pdf`.
+The full prediction JSONL is omitted from version control because full runs produce large prediction and frame-cache artifacts. Aggregate metrics are reported in `docs/report/adaptive_evidence_acquisition_grounded_videoqa_report.pdf`.
