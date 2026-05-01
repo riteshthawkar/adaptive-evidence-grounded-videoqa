@@ -8,7 +8,7 @@ If you are joining the project midstream, start with this README and the final r
 ## Submission Snapshot
 
 As of May 1, 2026, the main submission artifact is the final NeurIPS-style report in
-`docs/report/final_paper.pdf` and `docs/report/final_paper.tex`.
+`docs/report/final_paper.pdf`.
 The main content ends on page 9; references begin on page 10 and the appendix follows.
 
 The completed full-test result uses Qwen2.5-VL-3B-Instruct as the answerer on all
@@ -26,17 +26,7 @@ The completed full-test result uses Qwen2.5-VL-3B-Instruct as the answerer on al
 Important paper artifacts:
 
 - final report: `docs/report/final_paper.pdf`
-- report source: `docs/report/final_paper.tex`
-- presentation-values copy of the report: `docs/report/final_paper_presentation_values.pdf`
-- final Qwen metrics with bootstrap confidence intervals and question-type breakdowns:
-  `docs/artifacts/final_metrics/qwen_test_followup_compare.json`
-- temporal-router diagnostic metrics:
-  `docs/artifacts/final_metrics/qwen_test_temporal_router_compare.json`
-- frozen-answerer controls and candidate-pool ablations:
-  `docs/artifacts/final_metrics/`
-- main qualitative figure: `docs/report/qualitative_cases.pdf`
-- appendix qualitative figure: `docs/report/appendix_qualitative_cases.pdf`
-- final tradeoff figure: `docs/report/qwen_current_tradeoff_presentation.pdf`
+- final presentation: `docs/presentation/research_presentation.pptx`
 - sample demo input/output: `demo/README.md`
 
 Reproduce the final Qwen follow-up evaluations:
@@ -52,7 +42,11 @@ The Qwen runners use resumable prediction files, so interrupted jobs continue fr
 existing JSONL outputs.
 The full local `data/` and `runs/` directories are intentionally ignored for GitHub
 submission because they contain raw videos, frame caches, and large prediction files.
-The lightweight final metric summaries are copied under `docs/artifacts/final_metrics/`.
+The final numerical summaries are reported in the final report.
+
+## Pipeline Overview
+
+![Adaptive evidence acquisition pipeline](assets/pipeline_main_figure.png)
 
 The repository is intentionally built as a fresh research codebase instead of forking one older paper repo wholesale. That is the right tradeoff for this project:
 
@@ -168,7 +162,7 @@ Important limitations to report honestly:
 
 ```text
 configs/                    Experiment configuration templates
-docs/                       Proposal, report, and course material
+docs/                       Final report and final presentation
 scripts/                    Entry-point scripts for preprocessing and training
 src/adaptive_evidence_vqa/  Python package
 tests/                      Unit tests for core logic
@@ -513,7 +507,7 @@ python -m pytest
 For someone joining the project midstream, the fastest way to get oriented is:
 
 1. read this README for the research objective, novelty, and current implementation status;
-2. read `docs/report/final_paper.tex` for the current final-report narrative and results;
+2. read `docs/report/final_paper.pdf` for the final-report narrative and results;
 3. inspect `configs/experiment.template.yaml` for the current experiment assumptions;
 4. inspect `scripts/` in pipeline order: preprocessing, candidate building, visual extraction, answerer training, oracle export, policy training, and evaluation;
 5. inspect `outputs/dry_run/` for a fully executed miniature run.
@@ -534,13 +528,12 @@ The repository is organized to satisfy the final artifact requirements:
 - dependency and install instructions are in `environment.yml`, `pyproject.toml`, and this README;
 - dataset download and expected-layout notes are listed above;
 - sample input/output is in `demo/README.md`;
-- the final report and figures are in `docs/report/`;
-- lightweight final metric summaries are in `docs/artifacts/final_metrics/`;
+- the final report is in `docs/report/final_paper.pdf`;
+- the final presentation is in `docs/presentation/research_presentation.pptx`;
 - external code and dataset references are credited in the report bibliography and the external-reference section below.
 
 Do not commit or upload `.env`; it may contain `HF_TOKEN`. Do not upload the full
-local `data/` or `runs/` directories; use the dataset download instructions and
-the lightweight metric artifacts instead.
+local `data/` or `runs/` directories; use the dataset download instructions instead.
 
 ## Optional Future Work
 

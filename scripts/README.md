@@ -86,11 +86,7 @@ bash scripts/run_qwen_followup_strengthening.sh test
 bash scripts/run_qwen_temporal_router.sh test
 ```
 
-The final paper metrics are written under:
+The local full-run metrics are written under:
 
 - `runs/nextgqa_full_seed13/outputs/followup_strengthening/qwen/metrics/`
 - `runs/nextgqa_full_seed13/outputs/followup_strengthening/temporal_router/qwen/metrics/`
-
-Lightweight copies for the GitHub artifact package are stored in:
-
-- `docs/artifacts/final_metrics/`
